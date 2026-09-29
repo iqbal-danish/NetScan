@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Star,
   Shield,
+  Ban,
 } from "lucide-react";
 import { NetworkDevice } from "../../types";
 import { DeviceIcon } from "./DeviceIcon";
@@ -18,6 +19,7 @@ interface DeviceRowProps {
   onSelect: () => void;
   onPing: () => void;
   onOpenBrowser: () => void;
+  onToggleBlacklist: () => void;
 }
 
 export const DeviceRow: React.FC<DeviceRowProps> = ({
@@ -27,11 +29,13 @@ export const DeviceRow: React.FC<DeviceRowProps> = ({
   onSelect,
   onPing,
   onOpenBrowser,
+  onToggleBlacklist,
 }) => {
   const isRouter = device.deviceType === "router";
   const hasWeb =
     isRouter || device.openPorts?.some((p) => p.port === 80 || p.port === 443);
   const isWifi = device.connectionType === "wifi";
+  const isBlacklisted = device.statusTag === "blacklisted";
 
   return (
     <tr
@@ -39,6 +43,8 @@ export const DeviceRow: React.FC<DeviceRowProps> = ({
       className={`border-b border-[#172138] transition-colors cursor-pointer select-none group ${
         isSelected
           ? "bg-blue-600/15 border-blue-500/30"
+          : isBlacklisted
+          ? "bg-rose-950/20 border-rose-500/30 hover:bg-rose-900/30"
           : "hover:bg-[#131b2e]"
       }`}
     >
@@ -54,6 +60,8 @@ export const DeviceRow: React.FC<DeviceRowProps> = ({
             className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-all ${
               isSelected
                 ? "bg-blue-600 text-white border-blue-400 shadow-md shadow-blue-600/30"
+                : isBlacklisted
+                ? "bg-rose-500/15 border-rose-500/40 text-rose-400"
                 : "bg-[#18233d] border-[#223154] text-blue-400 group-hover:border-blue-500/40"
             }`}
           >
@@ -61,9 +69,15 @@ export const DeviceRow: React.FC<DeviceRowProps> = ({
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-xs text-gray-100 truncate block max-w-xs">
+              <span className={`font-semibold text-xs truncate block max-w-xs ${isBlacklisted ? "text-rose-200" : "text-gray-100"}`}>
                 {device.customName || device.displayName}
               </span>
+              {device.statusTag === "blacklisted" && (
+                <span className="flex items-center gap-0.5 text-[10px] font-bold text-rose-400 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.2 rounded">
+                  <Ban size={9} />
+                  BLACKLISTED
+                </span>
+              )}
               {device.isNew && (
                 <span className="flex items-center gap-0.5 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.2 rounded">
                   <Star size={9} className="fill-amber-400" />
@@ -179,6 +193,21 @@ export const DeviceRow: React.FC<DeviceRowProps> = ({
             className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-400 hover:bg-[#18233d] transition-colors cursor-pointer"
           >
             <Activity size={14} />
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleBlacklist();
+            }}
+            title={isBlacklisted ? "Remove from Blacklist" : "Blacklist Device"}
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+              isBlacklisted
+                ? "text-rose-400 bg-rose-500/15 hover:bg-rose-500/30"
+                : "text-gray-400 hover:text-rose-400 hover:bg-[#18233d]"
+            }`}
+          >
+            <Ban size={14} />
           </button>
 
           <button

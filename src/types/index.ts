@@ -15,7 +15,7 @@ export type DeviceType =
 
 export type ConnectionType = "wifi" | "wired" | "unknown";
 export type DeviceStatus = "online" | "offline" | "unknown";
-export type StatusTag = "trusted" | "unknown" | "ignored";
+export type StatusTag = "trusted" | "unknown" | "ignored" | "blacklisted";
 
 export interface ServiceInfo {
   port: number;

@@ -9,6 +9,7 @@ interface DeviceTableProps {
   onSelectDevice: (device: NetworkDevice) => void;
   onPingDevice: (device: NetworkDevice) => void;
   onOpenBrowser: (device: NetworkDevice) => void;
+  onToggleBlacklist: (device: NetworkDevice) => void;
   onScanAgain: () => void;
   isScanning: boolean;
 }
@@ -19,6 +20,7 @@ export const DeviceTable: React.FC<DeviceTableProps> = ({
   onSelectDevice,
   onPingDevice,
   onOpenBrowser,
+  onToggleBlacklist,
   onScanAgain,
   isScanning,
 }) => {
@@ -72,6 +74,7 @@ export const DeviceTable: React.FC<DeviceTableProps> = ({
                 onSelect={() => onSelectDevice(device)}
                 onPing={() => onPingDevice(device)}
                 onOpenBrowser={() => onOpenBrowser(device)}
+                onToggleBlacklist={() => onToggleBlacklist(device)}
               />
             ))}
           </tbody>

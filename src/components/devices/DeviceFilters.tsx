@@ -1,7 +1,19 @@
-import { Star, Wifi, Network, CheckCircle2 } from "lucide-react";
+import { Star, Wifi, Network, CheckCircle2, Ban } from "lucide-react";
 import { NetworkDevice } from "../../types";
 
-export type FilterKey = "all" | "online" | "wifi" | "wired" | "new" | "computers" | "phones" | "tvs" | "printers" | "iot" | "routers";
+export type FilterKey =
+  | "all"
+  | "online"
+  | "wifi"
+  | "wired"
+  | "new"
+  | "blacklisted"
+  | "computers"
+  | "phones"
+  | "tvs"
+  | "printers"
+  | "iot"
+  | "routers";
 
 interface DeviceFiltersProps {
   devices: NetworkDevice[];
@@ -20,6 +32,7 @@ export const DeviceFilters: React.FC<DeviceFiltersProps> = ({
     wifi: devices.filter((d) => d.connectionType === "wifi").length,
     wired: devices.filter((d) => d.connectionType === "wired").length,
     new: devices.filter((d) => d.isNew).length,
+    blacklisted: devices.filter((d) => d.statusTag === "blacklisted").length,
     computers: devices.filter((d) => d.deviceType === "desktop" || d.deviceType === "laptop").length,
     phones: devices.filter((d) => d.deviceType === "phone" || d.deviceType === "tablet").length,
     tvs: devices.filter((d) => d.deviceType === "tv").length,
@@ -28,7 +41,7 @@ export const DeviceFilters: React.FC<DeviceFiltersProps> = ({
     routers: devices.filter((d) => d.deviceType === "router").length,
   };
 
-  const primaryFilters: { key: FilterKey; label: string; icon?: React.ReactNode; count: number }[] = [
+  const primaryFilters: { key: FilterKey; label: string; icon?: React.ReactNode; count: number; isAlert?: boolean }[] = [
     { key: "all", label: "All", count: counts.all },
     {
       key: "online",
@@ -54,6 +67,13 @@ export const DeviceFilters: React.FC<DeviceFiltersProps> = ({
       icon: <Star size={13} className="text-amber-400 fill-amber-400" />,
       count: counts.new,
     },
+    {
+      key: "blacklisted",
+      label: "Blacklisted",
+      icon: <Ban size={13} className="text-rose-400" />,
+      count: counts.blacklisted,
+      isAlert: counts.blacklisted > 0,
+    },
   ];
 
   const categoryFilters: { key: FilterKey; label: string; count: number }[] = [
@@ -71,14 +91,18 @@ export const DeviceFilters: React.FC<DeviceFiltersProps> = ({
       <div className="flex flex-wrap items-center gap-1.5 p-1 bg-[#12192c] border border-[#1e2a47] rounded-xl">
         {primaryFilters.map((f) => {
           const isActive = activeFilter === f.key;
+          const isBlacklist = f.key === "blacklisted";
+          const activeBg = isBlacklist ? "bg-rose-600 text-white font-semibold shadow-sm" : "bg-blue-600 text-white font-semibold shadow-sm";
+          const inactiveBg = isBlacklist && f.count > 0
+            ? "text-rose-400 hover:text-rose-200 hover:bg-rose-500/15 border border-rose-500/30"
+            : "text-gray-400 hover:text-gray-200 hover:bg-[#18233d]";
+
           return (
             <button
               key={f.key}
               onClick={() => onFilterChange(f.key)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                isActive
-                  ? "bg-blue-600 text-white font-semibold shadow-sm"
-                  : "text-gray-400 hover:text-gray-200 hover:bg-[#18233d]"
+                isActive ? activeBg : inactiveBg
               }`}
             >
               {f.icon}
@@ -86,7 +110,9 @@ export const DeviceFilters: React.FC<DeviceFiltersProps> = ({
               <span
                 className={`text-[11px] px-1.5 py-0.2 rounded-md ${
                   isActive
-                    ? "bg-blue-700 text-white"
+                    ? isBlacklist ? "bg-rose-700 text-white" : "bg-blue-700 text-white"
+                    : isBlacklist && f.count > 0
+                    ? "bg-rose-500/20 text-rose-300 font-bold"
                     : "bg-[#18233d] text-gray-400"
                 }`}
               >

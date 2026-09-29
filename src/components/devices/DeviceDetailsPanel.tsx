@@ -13,6 +13,7 @@ import {
   Network,
   Search,
   Sparkles,
+  Ban,
 } from "lucide-react";
 import { NetworkDevice, ServiceInfo, StatusTag } from "../../types";
 import { DeviceIcon } from "./DeviceIcon";
@@ -167,7 +168,7 @@ export const DeviceDetailsPanel: React.FC<DeviceDetailsPanelProps> = ({
           <span className="text-[11px] uppercase tracking-wider font-semibold text-gray-400 block mb-2">
             Device Trust Status
           </span>
-          <div className="grid grid-cols-3 gap-1.5 bg-[#141c30] p-1 rounded-xl border border-[#1e2a47]">
+          <div className="grid grid-cols-4 gap-1.5 bg-[#141c30] p-1 rounded-xl border border-[#1e2a47]">
             <button
               onClick={() => handleSetStatusTag("trusted")}
               className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
@@ -176,7 +177,7 @@ export const DeviceDetailsPanel: React.FC<DeviceDetailsPanelProps> = ({
                   : "text-gray-400 hover:text-gray-200"
               }`}
             >
-              <Shield size={13} />
+              <Shield size={12} />
               <span>Trusted</span>
             </button>
 
@@ -188,7 +189,7 @@ export const DeviceDetailsPanel: React.FC<DeviceDetailsPanelProps> = ({
                   : "text-gray-400 hover:text-gray-200"
               }`}
             >
-              <ShieldAlert size={13} />
+              <ShieldAlert size={12} />
               <span>Unknown</span>
             </button>
 
@@ -200,11 +201,36 @@ export const DeviceDetailsPanel: React.FC<DeviceDetailsPanelProps> = ({
                   : "text-gray-400 hover:text-gray-200"
               }`}
             >
-              <ShieldOff size={13} />
+              <ShieldOff size={12} />
               <span>Ignore</span>
+            </button>
+
+            <button
+              onClick={() => handleSetStatusTag(device.statusTag === "blacklisted" ? "unknown" : "blacklisted")}
+              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                device.statusTag === "blacklisted"
+                  ? "bg-rose-600 text-white font-semibold shadow-sm"
+                  : "text-gray-400 hover:text-rose-300 hover:bg-rose-500/10"
+              }`}
+            >
+              <Ban size={12} />
+              <span>Blacklist</span>
             </button>
           </div>
         </div>
+
+        {/* Blacklist Warning Card */}
+        {device.statusTag === "blacklisted" && (
+          <div className="p-3 bg-rose-500/15 border border-rose-500/30 rounded-xl text-xs flex items-start gap-2.5">
+            <Ban size={16} className="text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-rose-200 block">Blacklisted Device</span>
+              <span className="text-[11px] text-rose-300/80 leading-relaxed block mt-0.5">
+                This device is marked as unauthorized or suspicious on your network. NetScan will highlight and alert whenever it is active on this subnet.
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Device Information Card */}
         <div>
@@ -379,6 +405,24 @@ export const DeviceDetailsPanel: React.FC<DeviceDetailsPanelProps> = ({
           <Activity size={14} className="text-emerald-400" />
           <span>Ping Device</span>
         </button>
+
+        {device.statusTag === "blacklisted" ? (
+          <button
+            onClick={() => handleSetStatusTag("trusted")}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-semibold transition-all cursor-pointer shadow-sm"
+          >
+            <Shield size={14} className="text-emerald-400" />
+            <span>Unblacklist Device (Mark Trusted)</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => handleSetStatusTag("blacklisted")}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 text-xs font-semibold transition-all cursor-pointer shadow-sm"
+          >
+            <Ban size={14} className="text-rose-400" />
+            <span>Blacklist Device</span>
+          </button>
+        )}
       </div>
     </aside>
   );

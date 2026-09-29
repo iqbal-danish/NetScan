@@ -6,6 +6,8 @@ import { DeviceTable } from "../devices/DeviceTable";
 import { DeviceDetailsPanel } from "../devices/DeviceDetailsPanel";
 import { PingModal } from "../devices/PingModal";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { Ban } from "lucide-react";
+import { api } from "../../services/api";
 
 interface DevicesPageProps {
   devices: NetworkDevice[];
@@ -38,6 +40,11 @@ export const DevicesPage: React.FC<DevicesPageProps> = ({
     return devices.find((d) => d.id === selectedDevice.id) || selectedDevice;
   }, [devices, selectedDevice]);
 
+  // Detected active blacklisted devices on network
+  const blacklistedOnlineDevices = useMemo(() => {
+    return devices.filter((d) => d.statusTag === "blacklisted" && d.status === "online");
+  }, [devices]);
+
   // Instant local filtering across multiple dimensions
   const filteredDevices = useMemo(() => {
     return devices.filter((d) => {
@@ -66,6 +73,8 @@ export const DevicesPage: React.FC<DevicesPageProps> = ({
           return d.connectionType === "wired";
         case "new":
           return d.isNew;
+        case "blacklisted":
+          return d.statusTag === "blacklisted";
         case "routers":
           return d.deviceType === "router";
         case "computers":
@@ -84,6 +93,16 @@ export const DevicesPage: React.FC<DevicesPageProps> = ({
       }
     });
   }, [devices, searchQuery, activeFilter]);
+
+  const handleToggleBlacklist = async (device: NetworkDevice) => {
+    const newTag = device.statusTag === "blacklisted" ? "trusted" : "blacklisted";
+    await api.setDeviceStatusTag(device.id, newTag);
+    const updated: NetworkDevice = {
+      ...device,
+      statusTag: newTag,
+    };
+    onUpdateDevice(updated);
+  };
 
   const handleOpenBrowser = async (device: NetworkDevice) => {
     const isHttps = device.openPorts?.some((p) => p.port === 443);
@@ -110,6 +129,31 @@ export const DevicesPage: React.FC<DevicesPageProps> = ({
           onScanAgain={onScanAgain}
         />
 
+        {/* Security Alert Banner for Blacklisted Devices */}
+        {blacklistedOnlineDevices.length > 0 && (
+          <div className="mb-5 p-4 rounded-2xl bg-rose-950/40 border border-rose-500/40 flex items-center justify-between gap-4 shadow-lg shadow-rose-950/40">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+                <Ban size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-rose-200">
+                  Security Alert: {blacklistedOnlineDevices.length} Blacklisted {blacklistedOnlineDevices.length === 1 ? "Device" : "Devices"} Active on Network
+                </h4>
+                <p className="text-xs text-rose-300/80 mt-0.5 font-mono">
+                  {blacklistedOnlineDevices.map((d) => `${d.customName || d.displayName} (${d.ipAddress})`).join(", ")}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setActiveFilter("blacklisted")}
+              className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shrink-0 cursor-pointer shadow-md transition-all"
+            >
+              View Blacklisted
+            </button>
+          </div>
+        )}
+
         <DeviceFilters
           devices={devices}
           activeFilter={activeFilter}
@@ -128,6 +172,7 @@ export const DevicesPage: React.FC<DevicesPageProps> = ({
           }}
           onPingDevice={(device) => setPingDevice(device)}
           onOpenBrowser={handleOpenBrowser}
+          onToggleBlacklist={handleToggleBlacklist}
           onScanAgain={onScanAgain}
           isScanning={isScanning}
         />
