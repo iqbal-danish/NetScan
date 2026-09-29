@@ -73,16 +73,26 @@ pub fn classify_device(input: &ClassificationInput) -> ClassificationResult {
 
     // 1. Gateway / Router Check
     if is_gateway || host_lower.contains("rtk_gw") || host_lower.contains("router") || host_lower.contains("gateway") || input.ssdp_hint == Some("router") {
-        let name = if let Some(title) = input.http_title {
-            if !title.is_empty() && !title.to_lowercase().contains("login") {
-                title.to_string()
-            } else if !vendor.is_empty() && !vendor.starts_with("Private") {
-                format!("{} Router", vendor)
+        let is_valid_title = input.http_title.map_or(false, |t| {
+            let tl = t.to_lowercase();
+            !tl.is_empty()
+                && !tl.contains("login")
+                && !tl.contains("302")
+                && !tl.contains("301")
+                && !tl.contains("404")
+                && !tl.contains("moved")
+                && !tl.contains("redirect")
+                && !tl.contains("untitled")
+        });
+
+        let name = if is_valid_title {
+            input.http_title.unwrap().to_string()
+        } else if host_raw == "RTK_GW" || host_lower.contains("rtk_gw") {
+            if !vendor.is_empty() && !vendor.starts_with("Private") {
+                format!("{} Home Gateway", vendor)
             } else {
-                "Gateway Router".to_string()
+                "Realtek Home Gateway".to_string()
             }
-        } else if host_raw == "RTK_GW" {
-            "Realtek Home Gateway".to_string()
         } else if !vendor.is_empty() && !vendor.starts_with("Private") {
             format!("{} Router", vendor)
         } else {
