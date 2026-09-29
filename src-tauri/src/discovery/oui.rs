@@ -1,5 +1,14 @@
-/// MAC Address OUI (Organizationally Unique Identifier) vendor lookup
-/// Maps the first 3 bytes (6 hex chars) of a MAC address to manufacturer name.
+/// Check if MAC address has the U/L (Locally Administered / Private) bit set
+/// Used by modern mobile devices (iOS Private Wi-Fi Address, Android MAC Randomization, Windows Random Hardware Addresses)
+pub fn is_randomized_mac(mac: &str) -> bool {
+    let clean: String = mac.chars().filter(|c| c.is_ascii_hexdigit()).take(2).collect();
+    if clean.len() >= 2 {
+        if let Ok(byte0) = u8::from_str_radix(&clean, 16) {
+            return (byte0 & 0x02) != 0;
+        }
+    }
+    false
+}
 
 pub fn lookup_vendor(mac: &str) -> Option<&'static str> {
     let clean: String = mac

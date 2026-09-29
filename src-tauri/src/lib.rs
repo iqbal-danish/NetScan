@@ -72,11 +72,13 @@ mod tests {
             hostname: None,
             netbios_name: None,
             ssdp_hint: None,
+            http_title: None,
+            http_server: None,
             open_ports: &[],
         };
-        let (dtype, dname) = classify_device(&input_gw);
-        assert_eq!(dtype, "router");
-        assert!(dname.contains("Router"));
+        let res_gw = classify_device(&input_gw);
+        assert_eq!(res_gw.device_type, "router");
+        assert!(res_gw.display_name.contains("Router"));
 
         // Printer
         let input_printer = ClassificationInput {
@@ -87,10 +89,12 @@ mod tests {
             hostname: Some("Brother-HL-L2350DW"),
             netbios_name: None,
             ssdp_hint: None,
+            http_title: None,
+            http_server: None,
             open_ports: &[ServiceInfo { port: 631, protocol: "TCP".to_string(), service_name: "IPP".to_string() }],
         };
-        let (dtype, _) = classify_device(&input_printer);
-        assert_eq!(dtype, "printer");
+        let res_printer = classify_device(&input_printer);
+        assert_eq!(res_printer.device_type, "printer");
 
         // PC / Desktop
         let input_pc = ClassificationInput {
@@ -101,11 +105,13 @@ mod tests {
             hostname: Some("DESKTOP-8F3K2"),
             netbios_name: Some("DANISH-PC"),
             ssdp_hint: None,
+            http_title: None,
+            http_server: None,
             open_ports: &[],
         };
-        let (dtype, dname) = classify_device(&input_pc);
-        assert_eq!(dtype, "desktop");
-        assert_eq!(dname, "DANISH-PC");
+        let res_pc = classify_device(&input_pc);
+        assert_eq!(res_pc.device_type, "desktop");
+        assert_eq!(res_pc.display_name, "DANISH-PC");
     }
 
     #[test]
@@ -155,6 +161,23 @@ mod tests {
             println!("ARP Scan finished in {:?}. Total devices found: {}", start.elapsed(), devices.len());
             assert!(!devices.is_empty());
         });
+    }
+
+    #[test]
+    fn test_real_dns_resolution() {
+        use std::net::Ipv4Addr;
+        use crate::discovery::dns_resolver::resolve_gateway_hostname;
+        let gw = Some("192.168.1.1".parse::<Ipv4Addr>().unwrap());
+
+        let phone1 = resolve_gateway_hostname("192.168.1.34".parse().unwrap(), gw);
+        println!("\nResolved 192.168.1.34: {:?}", phone1);
+
+        let phone2 = resolve_gateway_hostname("192.168.1.36".parse().unwrap(), gw);
+        println!("Resolved 192.168.1.36: {:?}", phone2);
+
+        let pc = resolve_gateway_hostname("192.168.1.40".parse().unwrap(), gw);
+        println!("Resolved 192.168.1.40: {:?}", pc);
+        println!();
     }
 }
 

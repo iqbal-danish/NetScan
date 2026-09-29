@@ -1,5 +1,7 @@
 pub mod arp;
 pub mod device_classifier;
+pub mod dns_resolver;
+pub mod http_banner;
 pub mod icmp;
 pub mod mdns;
 pub mod nbns;

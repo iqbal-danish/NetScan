@@ -82,6 +82,23 @@ export const DeviceRow: React.FC<DeviceRowProps> = ({
                 {device.hostname}
               </span>
             )}
+            {device.openPorts && device.openPorts.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {device.openPorts.slice(0, 3).map((p) => (
+                  <span
+                    key={p.port}
+                    className="text-[9px] font-mono font-medium px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                  >
+                    {p.serviceName}:{p.port}
+                  </span>
+                ))}
+                {device.openPorts.length > 3 && (
+                  <span className="text-[9px] font-mono text-gray-400">
+                    +{device.openPorts.length - 3}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </td>
@@ -95,9 +112,18 @@ export const DeviceRow: React.FC<DeviceRowProps> = ({
 
       {/* Manufacturer */}
       <td className="py-3 px-4">
-        <span className="text-xs font-medium text-gray-300">
-          {device.manufacturer || "Unknown"}
-        </span>
+        {device.manufacturer?.includes("Private MAC") ? (
+          <span
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-md"
+            title="Locally administered randomized MAC address used by modern mobile OSes for Wi-Fi privacy"
+          >
+            Private MAC (Mobile)
+          </span>
+        ) : (
+          <span className="text-xs font-medium text-gray-200">
+            {device.manufacturer || "Unknown"}
+          </span>
+        )}
       </td>
 
       {/* Connection Type */}

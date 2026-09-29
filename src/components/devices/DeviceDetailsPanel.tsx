@@ -254,6 +254,15 @@ export const DeviceDetailsPanel: React.FC<DeviceDetailsPanelProps> = ({
               </span>
             </div>
 
+            {device.manufacturer?.includes("Private MAC") && (
+              <div className="p-3 bg-purple-500/10 border-t border-purple-500/20 text-[11px] text-purple-300 leading-relaxed flex items-start gap-2">
+                <Shield className="shrink-0 mt-0.5 text-purple-400" size={14} />
+                <span>
+                  <strong>Private MAC Address:</strong> Modern iOS &amp; Android devices randomize their MAC address by default for Wi-Fi privacy. NetScan extracted the device's real model name via the router's internal DHCP tables.
+                </span>
+              </div>
+            )}
+
             {/* Connection */}
             <div className="p-3 flex items-center justify-between">
               <span className="text-gray-400">Connection</span>

@@ -78,23 +78,29 @@ pub async fn start_scan(
         let ip_str = entry.ip.to_string();
         let mac_str = entry.mac.clone();
 
-        // OUI lookup
+        // 1. Router DNS Hostname Query (Resolves DHCP names like OnePlus-13, OPPO-K12x-5G)
+        let gateway_v4: Option<Ipv4Addr> = net_info.gateway_ip.as_deref().and_then(|s| s.parse().ok());
+        let gw_hostname = tokio::task::spawn_blocking(move || {
+            crate::discovery::dns_resolver::resolve_gateway_hostname(entry.ip, gateway_v4)
+        }).await.unwrap_or(None);
+
+        // 2. OUI lookup
         let vendor = lookup_vendor(&mac_str).map(|s| s.to_string());
 
-        // Check mDNS
+        // 3. Check mDNS
         let mdns_dev = mdns_results.get(&entry.ip);
         let mdns_name = mdns_dev.map(|m| m.hostname.clone());
 
-        // Check SSDP
+        // 4. Check SSDP
         let ssdp_dev = ssdp_results.get(&entry.ip);
         let ssdp_hint = ssdp_dev.and_then(|s| s.device_type_hint.as_deref());
 
-        // Query NetBIOS on UDP 137
+        // 5. Query NetBIOS on UDP 137
         let netbios_name = tokio::task::spawn_blocking(move || query_netbios_name(entry.ip))
             .await
             .unwrap_or(None);
 
-        // Ping for response time
+        // 6. Ping for response time
         let latency = tokio::task::spawn_blocking(move || ping_single(entry.ip))
             .await
             .unwrap_or(None);
@@ -102,14 +108,20 @@ pub async fn start_scan(
         let is_gateway = net_info.gateway_ip.as_deref() == Some(&ip_str);
         let is_self = net_info.local_ip == ip_str;
 
-        // Quick service check for gateway/servers
-        let open_ports = if is_gateway {
-            scan_common_services(&ip_str).await
+        // 7. Probe common ports on device
+        let open_ports = scan_common_services(&ip_str).await;
+
+        // 8. If HTTP port 80 is open, probe HTTP banner
+        let http_banner = if open_ports.iter().any(|p| p.port == 80) {
+            crate::discovery::http_banner::fetch_http_banner(&ip_str, 80).await
         } else {
-            vec![]
+            None
         };
 
-        let hostname_candidate = mdns_name.clone().or_else(|| netbios_name.clone());
+        let hostname_candidate = gw_hostname
+            .clone()
+            .or_else(|| mdns_name.clone())
+            .or_else(|| netbios_name.clone());
 
         let classification_input = ClassificationInput {
             ip: &ip_str,
@@ -119,10 +131,15 @@ pub async fn start_scan(
             hostname: hostname_candidate.as_deref(),
             netbios_name: netbios_name.as_deref(),
             ssdp_hint,
+            http_title: http_banner.as_ref().and_then(|b| b.title.as_deref()),
+            http_server: http_banner.as_ref().and_then(|b| b.server.as_deref()),
             open_ports: &open_ports,
         };
 
-        let (device_type, mut display_name) = classify_device(&classification_input);
+        let classified = classify_device(&classification_input);
+        let mut display_name = classified.display_name;
+        let device_type = classified.device_type;
+        let final_manufacturer = classified.manufacturer.or(vendor);
 
         if is_self {
             display_name = format!("{} (This PC)", display_name);
@@ -141,7 +158,7 @@ pub async fn start_scan(
             hostname: hostname_candidate,
             display_name,
             custom_name: None,
-            manufacturer: vendor,
+            manufacturer: final_manufacturer,
             device_type,
             connection_type,
             status: "online".to_string(),
