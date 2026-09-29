@@ -79,8 +79,36 @@ mod tests {
     use super::*;
     use crate::discovery::network_interface::{calculate_cidr, get_ips_in_network};
     use crate::discovery::oui::lookup_vendor;
-    use crate::discovery::device_classifier::{classify_device, ClassificationInput};
+    use crate::discovery::device_classifier::{classify_device, determine_connection_type, ClassificationInput};
     use crate::models::device::ServiceInfo;
+
+    #[test]
+    fn test_connection_type_determination() {
+        // Even if local host is on Ethernet (host_is_wifi = false):
+        // 1. Mobile phone with randomized MAC must be wifi
+        let phone_conn = determine_connection_type("phone", Some("5A:F1:0F:F0:32:BE"), Some("OnePlus-13"), Some("OnePlus"), false, false);
+        assert_eq!(phone_conn, "wifi");
+
+        // 2. OPPO phone with randomized MAC must be wifi
+        let oppo_conn = determine_connection_type("phone", Some("92:BE:A6:8F:8E:A0"), Some("OPPO-K12x-5G"), Some("OPPO"), false, false);
+        assert_eq!(oppo_conn, "wifi");
+
+        // 3. Tablet must be wifi
+        let tab_conn = determine_connection_type("tablet", None, Some("iPad-Pro"), Some("Apple"), false, false);
+        assert_eq!(tab_conn, "wifi");
+
+        // 4. Gateway Router must be wired
+        let gw_conn = determine_connection_type("router", Some("D0:1E:1D:6C:16:77"), Some("RTK_GW"), Some("Arcadyan"), false, false);
+        assert_eq!(gw_conn, "wired");
+
+        // 5. This PC when connected via Ethernet
+        let pc_conn_eth = determine_connection_type("desktop", Some("30:13:8B:F0:E2:68"), Some("CB-5CG4244X48"), Some("HP"), true, false);
+        assert_eq!(pc_conn_eth, "wired");
+
+        // 6. This PC when connected via Wi-Fi
+        let pc_conn_wifi = determine_connection_type("desktop", Some("30:13:8B:F0:E2:68"), Some("CB-5CG4244X48"), Some("HP"), true, true);
+        assert_eq!(pc_conn_wifi, "wifi");
+    }
 
     #[test]
     fn test_network_cidr_calculation() {

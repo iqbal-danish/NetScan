@@ -4,7 +4,7 @@ use tauri::{AppHandle, Emitter, State};
 use chrono::Local;
 
 use crate::discovery::arp::scan_subnet_arp;
-use crate::discovery::device_classifier::{classify_device, ClassificationInput};
+use crate::discovery::device_classifier::{classify_device, determine_connection_type, ClassificationInput};
 use crate::discovery::icmp::ping_single;
 use crate::discovery::mdns::discover_mdns;
 use crate::discovery::nbns::query_netbios_name;
@@ -145,11 +145,14 @@ pub async fn start_scan(
             display_name = format!("{} (This PC)", display_name);
         }
 
-        let connection_type = if net_info.interface_type == "Wi-Fi" {
-            "wifi".to_string()
-        } else {
-            "wired".to_string()
-        };
+        let connection_type = determine_connection_type(
+            &device_type,
+            Some(&mac_str),
+            hostname_candidate.as_deref(),
+            final_manufacturer.as_deref(),
+            is_self,
+            net_info.interface_type == "Wi-Fi",
+        );
 
         let mut device = NetworkDevice {
             id: mac_str.clone(),

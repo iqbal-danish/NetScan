@@ -257,3 +257,70 @@ pub fn classify_device(input: &ClassificationInput) -> ClassificationResult {
         manufacturer: if !vendor.is_empty() { Some(vendor) } else { None },
     }
 }
+
+pub fn determine_connection_type(
+    device_type: &str,
+    mac: Option<&str>,
+    hostname: Option<&str>,
+    manufacturer: Option<&str>,
+    is_self: bool,
+    host_is_wifi: bool,
+) -> String {
+    if is_self {
+        return if host_is_wifi { "wifi" } else { "wired" }.to_string();
+    }
+
+    // 1. Mobile devices & tablets are ALWAYS Wi-Fi (no ethernet ports)
+    if device_type == "phone" || device_type == "tablet" || device_type == "smart_speaker" || device_type == "iot" {
+        return "wifi".to_string();
+    }
+
+    // 2. Randomized MAC addresses are exclusively 802.11 Wi-Fi privacy features
+    if let Some(m) = mac {
+        if is_randomized_mac(m) {
+            return "wifi".to_string();
+        }
+    }
+
+    let host_lower = hostname.unwrap_or("").to_lowercase();
+    let vendor_lower = manufacturer.unwrap_or("").to_lowercase();
+
+    // 3. Mobile/smart vendors and hostnames
+    if vendor_lower.contains("oneplus")
+        || vendor_lower.contains("oppo")
+        || vendor_lower.contains("apple")
+        || vendor_lower.contains("samsung")
+        || vendor_lower.contains("xiaomi")
+        || vendor_lower.contains("realme")
+        || vendor_lower.contains("vivo")
+        || vendor_lower.contains("google")
+        || vendor_lower.contains("espressif")
+        || vendor_lower.contains("tuya")
+        || vendor_lower.contains("roku")
+        || vendor_lower.contains("amazon")
+        || host_lower.contains("oneplus")
+        || host_lower.contains("oppo")
+        || host_lower.contains("iphone")
+        || host_lower.contains("ipad")
+        || host_lower.contains("android")
+        || host_lower.contains("galaxy")
+        || host_lower.contains("pixel")
+        || host_lower.contains("firetv")
+        || host_lower.contains("chromecast")
+    {
+        return "wifi".to_string();
+    }
+
+    // 4. Gateway Router
+    if device_type == "router" {
+        return "wired".to_string();
+    }
+
+    // 5. If host is connected to Wi-Fi, other consumer devices default to Wi-Fi
+    if host_is_wifi && (device_type == "laptop" || device_type == "tv" || device_type == "unknown") {
+        return "wifi".to_string();
+    }
+
+    // 6. Desktops, servers, wired printers
+    "wired".to_string()
+}
