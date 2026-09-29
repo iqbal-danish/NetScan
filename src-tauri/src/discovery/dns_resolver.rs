@@ -16,9 +16,11 @@ pub fn resolve_gateway_hostname(ip: Ipv4Addr, gateway_ip: Option<Ipv4Addr>) -> O
         // 2. Fallback using system nslookup against gateway
         #[cfg(target_os = "windows")]
         {
-            let output = Command::new("nslookup")
-                .args([&ip.to_string(), &gw.to_string()])
-                .output();
+            use std::os::windows::process::CommandExt;
+            let mut cmd = Command::new("nslookup");
+            cmd.args([&ip.to_string(), &gw.to_string()]);
+            cmd.creation_flags(0x08000000);
+            let output = cmd.output();
 
             if let Ok(out) = output {
                 let text = String::from_utf8_lossy(&out.stdout);

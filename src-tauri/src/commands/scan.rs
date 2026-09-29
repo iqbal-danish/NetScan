@@ -105,7 +105,7 @@ pub async fn start_scan(
             .await
             .unwrap_or(None);
 
-        let is_gateway = net_info.gateway_ip.as_deref() == Some(&ip_str);
+        let _is_gateway = net_info.gateway_ip.as_deref() == Some(&ip_str);
         let is_self = net_info.local_ip == ip_str;
 
         // 7. Probe common ports on device

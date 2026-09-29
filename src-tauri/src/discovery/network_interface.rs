@@ -109,9 +109,11 @@ async fn check_internet_connectivity() -> bool {
 
 #[cfg(target_os = "windows")]
 fn get_wifi_details() -> (Option<String>, Option<u8>) {
-    let output = Command::new("netsh")
-        .args(["wlan", "show", "interfaces"])
-        .output();
+    use std::os::windows::process::CommandExt;
+    let mut cmd = Command::new("netsh");
+    cmd.args(["wlan", "show", "interfaces"]);
+    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    let output = cmd.output();
 
     if let Ok(out) = output {
         let text = String::from_utf8_lossy(&out.stdout);
@@ -149,9 +151,11 @@ fn get_wifi_details() -> (Option<String>, Option<u8>) {
 
 #[cfg(target_os = "windows")]
 fn get_adapter_details(wifi_ssid: &Option<String>) -> (String, String, String, String, Option<String>, Vec<String>) {
-    let output = Command::new("ipconfig")
-        .arg("/all")
-        .output();
+    use std::os::windows::process::CommandExt;
+    let mut cmd = Command::new("ipconfig");
+    cmd.arg("/all");
+    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    let output = cmd.output();
 
     if let Ok(out) = output {
         let text = String::from_utf8_lossy(&out.stdout);

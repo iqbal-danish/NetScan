@@ -54,9 +54,14 @@ pub fn probe_arp(ip: Ipv4Addr) -> Option<String> {
 pub fn read_system_arp_table() -> HashMap<Ipv4Addr, String> {
     let mut table = HashMap::new();
 
-    let output = Command::new("arp")
-        .arg("-a")
-        .output();
+    let mut cmd = Command::new("arp");
+    cmd.arg("-a");
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    let output = cmd.output();
 
     if let Ok(out) = output {
         let text = String::from_utf8_lossy(&out.stdout);

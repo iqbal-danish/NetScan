@@ -6,6 +6,8 @@ pub mod commands;
 use std::sync::Arc;
 use storage::db::StorageManager;
 
+use tauri::Manager;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let storage_manager = Arc::new(StorageManager::new());
@@ -13,6 +15,50 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(storage_manager)
+        .setup(|app| {
+            #[cfg(target_os = "windows")]
+            {
+                if let Some(window) = app.get_webview_window("main") {
+                    if let Ok(hwnd) = window.hwnd() {
+                        unsafe {
+                            use windows_sys::Win32::Graphics::Dwm::{
+                                DwmSetWindowAttribute, DWMWA_CAPTION_COLOR,
+                                DWMWA_TEXT_COLOR, DWMWA_USE_IMMERSIVE_DARK_MODE,
+                            };
+                            let dark_mode: i32 = 1;
+                            let _ = DwmSetWindowAttribute(
+                                hwnd.0 as _,
+                                DWMWA_USE_IMMERSIVE_DARK_MODE as u32,
+                                &dark_mode as *const _ as *const _,
+                                std::mem::size_of::<i32>() as u32,
+                            );
+                            let _ = DwmSetWindowAttribute(
+                                hwnd.0 as _,
+                                19, // DWMWA_USE_IMMERSIVE_DARK_MODE fallback on older Win10
+                                &dark_mode as *const _ as *const _,
+                                std::mem::size_of::<i32>() as u32,
+                            );
+                            // Deep black / slate-950 color for title bar: 0x00130F0B (COLORREF 0x00BBGGRR)
+                            let caption_color: u32 = 0x00130F0B;
+                            let _ = DwmSetWindowAttribute(
+                                hwnd.0 as _,
+                                DWMWA_CAPTION_COLOR as u32,
+                                &caption_color as *const _ as *const _,
+                                std::mem::size_of::<u32>() as u32,
+                            );
+                            let text_color: u32 = 0x00FFFFFF;
+                            let _ = DwmSetWindowAttribute(
+                                hwnd.0 as _,
+                                DWMWA_TEXT_COLOR as u32,
+                                &text_color as *const _ as *const _,
+                                std::mem::size_of::<u32>() as u32,
+                            );
+                        }
+                    }
+                }
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::network::get_network_info,
             commands::scan::start_scan,
