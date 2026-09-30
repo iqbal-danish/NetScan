@@ -19,12 +19,30 @@ pub fn run() {
             #[cfg(target_os = "windows")]
             {
                 if let Some(window) = app.get_webview_window("main") {
+                    if let Ok(icon) = tauri::image::Image::from_app_icon_resource(128) {
+                        let _ = window.set_icon(icon);
+                    }
                     if let Ok(hwnd) = window.hwnd() {
                         unsafe {
                             use windows_sys::Win32::Graphics::Dwm::{
                                 DwmSetWindowAttribute, DWMWA_CAPTION_COLOR,
                                 DWMWA_TEXT_COLOR, DWMWA_USE_IMMERSIVE_DARK_MODE,
                             };
+                            use windows_sys::Win32::UI::WindowsAndMessaging::{
+                                SendMessageW, LoadImageW, WM_SETICON, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_DEFAULTSIZE, LR_SHARED
+                            };
+                            use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
+
+                            let hinstance = GetModuleHandleW(std::ptr::null());
+                            let hicon = LoadImageW(hinstance, 32512 as *const u16, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+                            if !hicon.is_null() {
+                                SendMessageW(hwnd.0 as _, WM_SETICON, ICON_BIG as usize, hicon as isize);
+                            }
+                            let hicon_sm = LoadImageW(hinstance, 32512 as *const u16, IMAGE_ICON, 16, 16, LR_SHARED);
+                            if !hicon_sm.is_null() {
+                                SendMessageW(hwnd.0 as _, WM_SETICON, ICON_SMALL as usize, hicon_sm as isize);
+                            }
+
                             let dark_mode: i32 = 1;
                             let _ = DwmSetWindowAttribute(
                                 hwnd.0 as _,
