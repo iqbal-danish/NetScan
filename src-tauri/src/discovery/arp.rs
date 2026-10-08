@@ -45,6 +45,30 @@ pub fn probe_arp(ip: Ipv4Addr) -> Option<String> {
             );
             return Some(mac_str);
         }
+
+        // First attempt failed. Mobile devices (phones in sleep/DTIM power-save mode)
+        // often drop unsolicited ARP requests. Send a fast ICMP Echo packet to wake
+        // up the device radio & network stack, wait briefly, and retry SendARP.
+        crate::discovery::icmp::ping_single(ip);
+        std::thread::sleep(std::time::Duration::from_millis(80));
+
+        mac_len = 6u32;
+        let res_retry = unsafe {
+            SendARP(
+                ip_u32,
+                0,
+                mac_buf.as_mut_ptr(),
+                &mut mac_len as *mut u32,
+            )
+        };
+
+        if res_retry == 0 && mac_len == 6 {
+            let mac_str = format!(
+                "{:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}",
+                mac_buf[0], mac_buf[1], mac_buf[2], mac_buf[3], mac_buf[4], mac_buf[5]
+            );
+            return Some(mac_str);
+        }
     }
 
     None
@@ -119,7 +143,7 @@ where
     let semaphore = Arc::new(Semaphore::new(max_concurrency.max(128)));
     let mut tasks = Vec::new();
 
-    for ip in ips {
+    for ip in ips.clone() {
         if discovered.contains_key(&ip) {
             continue;
         }
@@ -130,7 +154,7 @@ where
             let probe_task = tokio::task::spawn_blocking(move || {
                 probe_arp(ip).map(|mac| ArpEntry { ip, mac })
             });
-            match tokio::time::timeout(std::time::Duration::from_millis(700), probe_task).await {
+            match tokio::time::timeout(std::time::Duration::from_millis(1200), probe_task).await {
                 Ok(Ok(res)) => res,
                 _ => None,
             }
@@ -143,6 +167,17 @@ where
                 on_device_found(entry.clone());
                 discovered.insert(entry.ip, entry);
             }
+        }
+    }
+
+    // Post-sweep ARP cache harvesting:
+    // Any devices whose ARP replies arrived slightly late into the Windows kernel's ARP table
+    let post_sweep_arp = read_system_arp_table();
+    for (ip, mac) in post_sweep_arp {
+        if ips.contains(&ip) && !discovered.contains_key(&ip) {
+            let entry = ArpEntry { ip, mac };
+            on_device_found(entry.clone());
+            discovered.insert(ip, entry);
         }
     }
 

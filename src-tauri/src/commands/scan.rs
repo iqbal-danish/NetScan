@@ -64,7 +64,52 @@ pub async fn start_scan(
     );
 
     let storage_clone = storage.inner().clone();
-    let arp_devices = scan_subnet_arp(ips.clone(), 64, move |_entry| {}).await;
+    let mut arp_devices = scan_subnet_arp(ips.clone(), 64, move |_entry| {}).await;
+
+    // Cross-check with Router Gateway DNS PTR records:
+    // If the router knows an active host on the subnet (e.g. DHCP lease for OnePlus-13)
+    // that was missed during ARP scan, force an active wake-up probe.
+    let gateway_v4: Option<Ipv4Addr> = net_info.gateway_ip.as_deref().and_then(|s| s.parse().ok());
+    if let Some(gw) = gateway_v4 {
+        let discovered_ips: std::collections::HashSet<Ipv4Addr> = arp_devices.iter().map(|d| d.ip).collect();
+        let missing_ips: Vec<Ipv4Addr> = ips.iter().cloned().filter(|ip| !discovered_ips.contains(ip)).collect();
+
+        let mut check_tasks = Vec::new();
+        for missing_ip in missing_ips {
+            check_tasks.push(tokio::task::spawn_blocking(move || {
+                crate::discovery::dns_resolver::resolve_gateway_hostname(missing_ip, Some(gw))
+                    .map(|name| (missing_ip, name))
+            }));
+        }
+
+        let mut leased_missing = Vec::new();
+        for task in check_tasks {
+            if let Ok(Some((ip, name))) = task.await {
+                leased_missing.push((ip, name));
+            }
+        }
+
+        if !leased_missing.is_empty() {
+            for (leased_ip, _) in &leased_missing {
+                crate::discovery::icmp::ping_single(*leased_ip);
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+
+            let late_arp_table = crate::discovery::arp::read_system_arp_table();
+            for (leased_ip, _) in leased_missing {
+                if !arp_devices.iter().any(|d| d.ip == leased_ip) {
+                    if let Some(mac) = crate::discovery::arp::probe_arp(leased_ip)
+                        .or_else(|| late_arp_table.get(&leased_ip).cloned())
+                    {
+                        arp_devices.push(crate::discovery::arp::ArpEntry {
+                            ip: leased_ip,
+                            mac,
+                        });
+                    }
+                }
+            }
+        }
+    }
 
     // 4. Wait for mDNS & SSDP results
     let mdns_results = mdns_future.await.unwrap_or_default();
@@ -79,7 +124,6 @@ pub async fn start_scan(
         let mac_str = entry.mac.clone();
 
         // 1. Router DNS Hostname Query (Resolves DHCP names like OnePlus-13, OPPO-K12x-5G)
-        let gateway_v4: Option<Ipv4Addr> = net_info.gateway_ip.as_deref().and_then(|s| s.parse().ok());
         let gw_hostname = tokio::task::spawn_blocking(move || {
             crate::discovery::dns_resolver::resolve_gateway_hostname(entry.ip, gateway_v4)
         }).await.unwrap_or(None);
